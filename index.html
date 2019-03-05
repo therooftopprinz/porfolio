@@ -1,0 +1,404 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Portfolio</title>
+    <style type="text/css">
+        .input
+        {
+            width: 50px;
+        }
+        .left-panel
+        {
+            width: 250px;
+            background: #7f7f7f;
+        }
+    </style>
+    <script type="text/javascript">
+        CircleElement = function(r,w,phi)
+        {
+            this.r = r;
+            this.w = w;
+            this.phi = phi;
+        }
+
+        CircleRender = function(controller)
+        {
+            this.trail = new Array();
+            this.renderLoop = false;
+            this.boxY = 600;
+            this.boxX = 800;
+                        this.centerX = 400;
+            this.centerY = 300;
+            this.maxTrail = 5000;
+            this.controller = controller;
+            this.tRender = 0;
+        };
+
+        CircleRender.prototype.setCanvas = function(canvas)
+        {
+            this.canvas = canvas;
+        };
+
+        CircleRender.prototype.start = function()
+        {
+            this.renderLoop = true;
+            var pthis = this;
+            setTimeout(function(){pthis.loop()}, 10);
+        };
+
+        CircleRender.prototype.stop = function()
+        {
+            this.renderLoop = false;
+        };
+
+
+        CircleRender.prototype.addTrail = function(x,y)
+        {
+            if(this.trail.length>=this.maxTrail)
+            {
+                this.trail.splice(0,1);
+            }
+            this.trail.push({x:x,y:y});
+        };
+
+        CircleRender.prototype.drawTrail = function(x,y)
+        {
+            this.canvas.beginPath();
+            var first = true;
+            var pthis = this;
+            this.trail.forEach(function(elem)
+            {
+                // console.log("trail",elem)
+                if (first)
+                {
+                    pthis.canvas.moveTo(elem.x,elem.y);
+                    first = false;
+                }
+                else
+                {
+                    pthis.canvas.lineTo(elem.x,elem.y);
+                }
+            });
+            this.canvas.strokeStyle="#000000";
+            this.canvas.stroke();
+            this.canvas.closePath();
+        };
+
+        CircleRender.prototype.drawCircle = function(circle)
+        {
+            var x = this.currentRender.x;
+            var y = this.currentRender.y;
+            var r = circle.r;
+            var wtp = circle.phi+circle.w*this.tRender;
+            var nX = x+r*Math.cos(wtp);
+            var nY = y-r*Math.sin(wtp);
+            // console.log("drawing circle", circle);
+            this.canvas.beginPath();
+            this.canvas.arc(x,y,circle.r,0,2*Math.PI);
+            this.canvas.strokeStyle="#AFAFAF";
+            this.canvas.stroke();
+            this.canvas.closePath();
+            this.canvas.beginPath();
+            this.canvas.moveTo(x,y);
+            this.canvas.lineTo(nX,nY);
+            this.canvas.strokeStyle="#0000FF";
+            this.canvas.stroke();
+            this.canvas.closePath();
+            this.currentRender.x = nX;
+            this.currentRender.y = nY;
+        }
+
+        CircleRender.prototype.reset = function()
+        {
+            this.trail = new Array();
+            this.tRender = 0;
+        };
+
+        CircleRender.prototype.loop = function()
+        {
+            this.currentRender = {x:this.centerX, y:this.centerY}
+            // console.log("render loop");
+            this.canvas.clearRect(0,0,this.boxX, this.boxY);
+            var pthis = this;
+
+            this.controller.getCircles().forEach(function(elem)
+            {
+                pthis.drawCircle(elem);
+            });
+
+            var x = this.currentRender.x;
+            var y = this.currentRender.y;
+            this.addTrail(x,y);
+            this.drawTrail();
+
+            this.tRender+=0.05;
+            if (this.renderLoop)
+            {
+                var pthis = this;
+                setTimeout(function(){pthis.loop()}, 50);
+            }
+            else
+            {
+                console.log("render done");
+            }
+        };
+
+        Controller = function ()
+        {
+            this.circles = new Array();
+            this.circleRender = new CircleRender(this);
+        };
+
+        Controller.prototype.addCircle = function(r, w, phi)
+        {
+            console.log("adding circle: rwphi("+r+","+w+","+phi+")");
+            this.circles.push(new CircleElement(r,w,phi));
+            return this.circles.length-1
+        };
+
+        Controller.prototype.removeCircle = function(idx)
+        {
+            console.log("removing circle:",this.circles[idx]);
+            this.circles.splice(idx,1);
+        };
+
+        Controller.prototype.getCircles = function()
+        {
+            return this.circles;
+        };
+
+        Controller.prototype.getCircleRender = function()
+        {
+            return this.circleRender;
+        };
+
+        Controller.prototype.start = function()
+        {
+            this.circleRender.start();
+        };
+
+        Controller.prototype.pause = function()
+        {
+            this.started = false;
+            this.circleRender.stop();
+        };
+
+        Controller.prototype.reset = function()
+        {
+            this.circleRender.reset();
+        };
+
+        CircleRemoverHelper = function(row, table)
+        {
+            console.log("Locating circle using row on table...");
+            var i = 1;
+            for(; i<table.childElementCount;i++)
+            {
+                if (table.children[i]==row)
+                {
+                    row.parentElement.removeChild(row);
+                    controller.removeCircle(i-1);
+                    return;
+                }
+            }
+            console.error("Circle not found!");
+        };
+
+        main = function ()
+        {
+            console.log("c2d inited");
+            c2d = document.getElementById("output").getContext("2d");
+            controller = new Controller();
+            controller.getCircleRender().setCanvas(c2d);
+            controller.start();
+
+            var panelInputR = document.getElementById("panel-r");
+            var panelInputW = document.getElementById("panel-w");
+            var panelInputP = document.getElementById("panel-p");
+            var panelButtonAdd = document.getElementById("panel-add");
+            var panelButtonClr = document.getElementById("panel-clr");
+            var panelButtonRst = document.getElementById("panel-rst");
+            var panelCircleList = document.getElementById("circle-list");
+
+            var addCircle = function(r,w,p)
+            {
+                var circleId = controller.addCircle(r,w,p);
+                var entryRow = document.createElement('tr');
+                var entryCol0 = document.createElement('td');
+                var entryCol1 = document.createElement('td');
+                var entryCol2 = document.createElement('td');
+                var entryCol3 = document.createElement('td');
+
+                var input = document.createElement('input');
+                input.type = "button";
+                input.value = "-";
+                input.addEventListener("click",function()
+                    {
+                        CircleRemoverHelper(entryRow, panelCircleList);
+                    }
+                );
+                entryCol0.appendChild(input);
+                entryCol1.innerHTML = r;
+                entryCol2.innerHTML = w;
+                entryCol3.innerHTML = p;
+                entryRow.appendChild(entryCol0);
+                entryRow.appendChild(entryCol1);
+                entryRow.appendChild(entryCol2);
+                entryRow.appendChild(entryCol3);
+                panelCircleList.appendChild(entryRow);
+            }
+            panelButtonAdd.addEventListener("click",
+                function()
+                {
+                    addCircle(parseFloat(panelInputR.value),parseFloat(panelInputW.value),parseFloat(panelInputP.value));
+                }
+            );
+            panelButtonClr.addEventListener("click",
+                function()
+                {
+                    var i = panelCircleList.childElementCount-1;
+                    for(; i>0;i--)
+                    {
+                        var row = panelCircleList.children[i];
+                        row.parentElement.removeChild(row);
+                        controller.removeCircle(i-1);
+                    }
+                }
+            );
+            panelButtonRst.addEventListener("click",
+                function()
+                {
+                    controller.reset();
+                }
+            );
+            // addCircle(49.019257623200005,1,0.912624346661);
+            // addCircle(34.3916491298,5,1.95046457303);
+            // addCircle(32.796255963200004,6,1.31732148773);
+            // addCircle(32.3778198444,4,2.27281919071);
+            // addCircle(28.9435220286,3,2.75224107202);
+            // addCircle(27.6375169014,-1,-1.00170900698);
+            // addCircle(18.5440228322,7,0.570419969414);
+            // addCircle(11.328606157420001,11,-1.34250928006);
+            // addCircle(8.530418086140001,15,-1.14067584145);
+            // addCircle(8.15815855904,8,-0.150604705663);
+            // addCircle(7.882849248220001,2,-2.18224400378);
+            // addCircle(7.5191831315,17,-1.88000276236);
+            // addCircle(7.277544196220001,-8,3.1161010433);
+            // addCircle(7.0252859225,-11,-1.58899810086);
+            // addCircle(6.90497827916,12,-3.08263167758);
+            // addCircle(6.64028926136,-10,-1.9589083767);
+            // addCircle(6.18114092702,-5,-2.8573877961);
+            // addCircle(5.849245278520001,16,-1.32531830188);
+            // addCircle(5.619980952360001,-17,-1.26829186942);
+            // addCircle(5.583398774180001,-12,-0.329948947247);
+            // addCircle(5.26763447006,-4,1.51584025533);
+            // addCircle(5.1526569256000005,-16,-1.87884402069);
+            // addCircle(5.062558287640001,-2,-2.24029608935);
+            // addCircle(4.8382452896200006,9,0.11472177549);
+            // addCircle(4.143702960800001,18,-2.42320235603);
+            // addCircle(4.10810515184,21,-0.64496986315);
+            // addCircle(3.9795308231200006,-14,-1.28636603093);
+            // addCircle(3.8309830592,-7,1.49763502913);
+            // addCircle(3.6743208682000006,-9,-2.88998375506);
+            // addCircle(3.63529317378,13,-2.86495298672);
+            // addCircle(3.29866270334,-13,-0.399652901868);
+            // addCircle(3.0168656319,10,-2.73202920867);
+            // addCircle(2.94722840846,-18,-1.19071022931);
+            // addCircle(2.9430303312,-26,-2.4048591055);
+            // addCircle(2.8218964256600003,-21,-2.39742489549);
+            // addCircle(2.6216203918400005,-15,-2.65902710982);
+            // addCircle(2.5532240244400004,20,-0.519112395199);
+            // addCircle(2.54112318118,28,1.61875266497);
+            // addCircle(2.4317946923800005,-3,-1.08493002328);
+            // addCircle(2.13104284956,-20,2.4795238718);
+            // addCircle(2.12593108706,14,-2.22304480397);
+            // addCircle(2.08392879964,23,2.95751378246);
+            // addCircle(1.7894260869379999,-27,-2.08820246092);
+            // addCircle(1.71901117141,-22,-1.71783994941);
+            // addCircle(1.6453808668120002,-23,-0.253720846515);
+            // addCircle(1.574259946106,-24,0.483455904933);
+            // addCircle(1.5190281163980002,-25,-2.0288771472);
+            // addCircle(1.42712648458,19,-3.10626536818);
+            // addCircle(1.290890231262,-6,-0.313991678353);
+            // addCircle(1.2578589965480003,29,1.03176813349);
+            // addCircle(1.2173908081700002,26,-2.48173419135);
+            // addCircle(1.1632976565820001,30,0.0176464618719);
+            // addCircle(1.0370674330160001,22,3.0970383155);
+            // addCircle(0.714191063628,25,3.0360363301);
+            // addCircle(0.6912599689640001,27,0.799028901866);
+            // addCircle(0.679004989152,-30,2.63130077536);
+            // addCircle(0.63891361687,-29,0.972066287696);
+            // addCircle(0.6136334835020001,24,2.54990562088);
+            // addCircle(0.5543573893179999,-19,-2.13119590596);
+            // addCircle(0.540671867898,-28,1.55500865614);
+
+// addCircle(88.0 , 0 , 1.571);
+// addCircle(70.584 , -1 , -1.309);
+// addCircle(21.752 , 1 , -1.833);
+// addCircle(15.928 , 2 , 1.0472);
+// addCircle(13.071 , -3 , -0.785);
+// addCircle(6.464 , -4 , 2.618);
+// addCircle(6.0 , -6 , 3.142);
+// addCircle(4.464 , -2 , -1.047);
+// addCircle(4.291 , -5 , 2.88);
+// addCircle(3.414 , 3 , 0.785);
+// addCircle(2.464 , -10 , -2.094);
+// addCircle(2.072 , 10 , -1.047);
+
+
+addCircle(29.0936334783 , 1 , -1.81245730015);
+addCircle(78.5671444911 , -1 , -1.32913535344);
+addCircle(16.3253555456 , 2 , 1.08747438009);
+addCircle(6.89976417333 , -2 , -1.08747438009);
+addCircle(5.68605582523 , 3 , 0.845813406736);
+addCircle(12.8189257738 , -3 , -0.845813406736);
+addCircle(0.200571935305 , 4 , 0.604152433383);
+addCircle(0.529862949007 , -4 , 2.53744022021);
+addCircle(0.720080349868 , 5 , -2.77910119356);
+addCircle(7.18921256307 , -5 , 2.77910119356);
+addCircle(1.24915400649 , 6 , 0.120830486677);
+addCircle(4.22703570721 , -6 , 3.02076216691);
+addCircle(2.20769471668 , 7 , -0.120830486677);
+addCircle(4.06251119721 , -7 , -3.02076216691);
+addCircle(1.33175938098 , 8 , -0.36249146003);
+addCircle(3.02243791608 , -8 , 0.36249146003);
+addCircle(1.1048787793 , 9 , -0.604152433383);
+addCircle(2.78884618032 , -9 , -2.53744022021);
+addCircle(0.958242308365 , 10 , -0.845813406736);
+addCircle(0.533865752879 , -10 , 0.845813406736);
+addCircle(2.55484990795 , 11 , -1.08747438009);
+addCircle(3.60573492331 , -11 , -2.0541182735);
+addCircle(0.403184356116 , 12 , 1.81245730015);
+addCircle(1.96272963461 , -12 , 1.32913535344);
+addCircle(1.0 , 13 , -1.57079632679);
+
+        };
+
+    </script>
+</head>
+<body onload="main()">
+<div style="font-size:100px">My Portfolio</div>
+    <canvas id="output" height="600" width="800"></canvas>
+    <div class="panel">
+        <div>
+            <input id="panel-add"  type="button" value="+" name=""/>
+            <input id="panel-r" class="input" type="input" value="" name=""/>
+            <input id="panel-w" class="input" type="input" value="" name=""/>
+            <input id="panel-p" class="input" type="input" value="" name=""/>
+            <input id="panel-clr"  type="button" value="clear all" name=""/>
+            <input id="panel-rst"  type="button" value="reset drawing" name=""/>
+        </div>
+        <table>
+            <tbody id="circle-list">
+                <tr>
+                    <td></td>
+                    <td>radius</td>
+                    <td>w/s</td>
+                    <td>phase</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
